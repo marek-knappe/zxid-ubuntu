@@ -36,6 +36,7 @@ error "gperf generated tables don't work with this execution character set. Plea
 #include "zx.h"
 #include "c/zx-ns.h"
 //#include "c/zx-attrs.h"
+#include "c/zx-data.h"
 #include <string.h>
 
 #define TOTAL_KEYWORDS 341

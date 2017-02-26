@@ -60,6 +60,11 @@ PREFIX=/var/zxid/$(ZXIDREL)
 ### well. N.B. Trailing / (forward slash) is needed.
 ZXID_PATH=/var/zxid/
 
+SHLIBLINK=libzxid.so
+SONAME=$(SHLIBLINK).0
+SHLIB=$(SONAME).0
+
+
 ###
 ### Module selection options (you should enable all, unless building embedded)
 ###
@@ -711,7 +716,7 @@ precheck/chk-%$(EXE): precheck/chk-%.$(OE)
 	@if $(LD) $(OUTOPT)$@ $< $(LDFLAGS) $(LIBS) ; then : ; else \
 	echo Failed command:; echo '$(LD) $(OUTOPT)$@ $< $(LDFLAGS) $(LIBS)' ; false; fi
 
-%$(EXE): %.$(OE)
+%$(EXE): %.$(OE) $(SHLIBLINK)
 	@echo "  Linking   $@"
 	@if $(LD) $(OUTOPT)$@ $< $(LDFLAGS) $(LIBZXID) $(LIBS) ; then : ; else \
 	echo Failed command:; echo '$(LD) $(OUTOPT)$@ $< $(LDFLAGS) $(LIBZXID) $(LIBS)' ; false; fi
@@ -728,7 +733,7 @@ export LC_COLLATE LC_NUMERIC
 
 DEFAULT_EXE= zxidhlo$(EXE) zxididp$(EXE) zxidhlowsf$(EXE) zxidsimple$(EXE) zxidwsctool$(EXE) zxlogview$(EXE) zxidhrxmlwsc$(EXE) zxidhrxmlwsp$(EXE) zxdecode$(EXE) zxcot$(EXE) zxpasswd$(EXE) zxcall$(EXE) zxumacall$(EXE) zxencdectest$(EXE)
 
-ALL_EXE= smime$(EXE) zxidwspcgi$(EXE) zxid_httpd$(EXE) htpasswd$(EXE)
+ALL_EXE= smime$(EXE) zxidwspcgi$(EXE) zxid_httpd$(EXE) htpasswd$(EXE) zxbusd$(EXE) zxbustailf$(EXE) zxbuslist$(EXE)
 
 #$(info DEFAULT_EXE=$(DEFAULT_EXE))
 
@@ -1227,8 +1232,11 @@ endif
 
 # Overall
 
-samlmod Net/Makefile: Net/SAML_wrap.c Net/SAML.pm $(LIBZXID_A)
-	cd Net; $(PERL) Makefile.PL && $(MAKE)
+#samlmod Net/Makefile: Net/SAML_wrap.c Net/SAML.pm $(LIBZXID_A)
+#	cd Net; $(PERL) Makefile.PL && $(MAKE)
+samlmod Net/Makefile: Net/SAML_wrap.c Net/SAML.pm $(SHLIBLINK)
+	cd Net; $(PERL) Makefile.PL INSTALLDIRS=vendor && $(MAKE)
+
 
 samlmod_install: Net/Makefile
 	cd Net; $(MAKE) install
@@ -1308,9 +1316,9 @@ php/php_zxid$(SO): php/zxid_wrap.$(OE) $(LIBZXID_A)
 phpzxid: php/php_zxid$(SO)
 
 phpzxid_install: php/php_zxid$(SO)
-	@$(ECHO) Installing in `$(PHP_CONFIG) --extension-dir`
-	mkdir -p `$(PHP_CONFIG) --extension-dir`
-	$(CP) $< `$(PHP_CONFIG) --extension-dir`
+	@$(ECHO) Installing in $(DESTDIR)`$(PHP_CONFIG) --extension-dir`
+	mkdir -p $(DESTDIR)`$(PHP_CONFIG) --extension-dir`
+	$(CP) $< $(DESTDIR)`$(PHP_CONFIG) --extension-dir`
 
 #cp zxid.ini `$(PHP_CONFIG) --extension-dir`
 
@@ -1534,7 +1542,7 @@ ZxidServlet.class: ZxidServlet.java zxidjava/zxidjni.class
 	$(JAVAC) $(JAVAC_FLAGS) -classpath $(SERVLET_PATH) zxidjava/*.java ZxidServlet.java
 
 zxidjava.jar: zxidjava/zxidjni.class zxidjava/README.zxid-java
-	$(CP) COPYING LICENSE-2.0.txt LICENSE.openssl LICENSE.ssleay LICENSE.curl zxidjava/
+	$(CP) COPYING LICENSE-2.0.txt zxidjava/
 	$(JAR) cf zxidjava.jar zxidjava/*.class zxidjava/*.java zxidjava/COPYING zxidjava/LICENSE*
 
 zxiddemo.war: zxidjava.jar
@@ -1606,7 +1614,7 @@ precheck_apache:  precheck/chk-apache.$(OE) precheck/chk-apache
 apachezxid: precheck_apache precheck mod_auth_saml$(SO)
 
 apachezxid_install: mod_auth_saml$(SO)
-	$(CP) $< $(APACHE_MODULES)
+	$(CP) $< $(DESTDIR)$(APACHE_MODULES)
 
 mod_auth_saml: apachezxid
 	@$(ECHO) "mod_auth_saml: not an official target. Use make apachezxid"
@@ -1644,7 +1652,7 @@ mini_httpd_zxid: $(MINI_HTTPD_DIR)/mini_httpd_zxid $(MINI_HTTPD_DIR)/htpasswd
 ### zxid_httpd (derived from mini_httd).
 ###
 
-zxid_httpd$(EXE): zxid_httpd.$(OE) tdate_parse.$(OE) mini_httpd_filter.$(OE) $(LIBZXID_A)
+zxid_httpd$(EXE): zxid_httpd.$(OE) tdate_parse.$(OE) mini_httpd_filter.$(OE) $(SHLIBLINK)
 	$(warning ZXID_HTTPD LINK)
 	$(LD) $(LDFLAGS) $(OUTOPT)$@ $^ $(LIBS)
 
@@ -1654,7 +1662,7 @@ zxid_httpd$(EXE): zxid_httpd.$(OE) tdate_parse.$(OE) mini_httpd_filter.$(OE) $(L
 
 #zxid$(EXE): zxid.$(OE) $(LIBZXID_A)
 
-$(DEFAULT_EXE) $(ALL_EXE): $(LIBZXID_A)
+$(DEFAULT_EXE) $(ALL_EXE): $(SHLIBLINK) $(SONAME) 
 
 zxcot-static-x64: zxcot.$(OE) $(LIBZXID_A)
 	diet gcc $(OUTOPT)$@$(EXE) $< -static -L. -lzxid -pthread -lpthread -L$(DIET_ROOT)/lib -L$(DIET_ROOT)/ssl/lib-x86_64 -lcurl -lssl -lcrypto -lz
@@ -1713,7 +1721,7 @@ zxbustailf-static-x64: zxbustailf.$(OE) $(LIBZXID_A)
 zxbuslist-static-x64: zxbuslist.$(OE) $(LIBZXID_A)
 	diet gcc $(OUTOPT)$@ $< -static -L. -lzxid -pthread -lpthread -L$(DIET_ROOT)/lib -L$(DIET_ROOT)/ssl/lib-x86_64 -lcurl -lssl -lcrypto -lz
 
-zxbusd: $(ZXBUSD_OBJ) $(LIBZXID_A)
+zxbusd: $(ZXBUSD_OBJ) $(SHLIBLINK)
 	$(CC) $(OUTOPT)$@ $^ $(LIBS)
 
 zxbusd-static-x64: $(ZXBUSD_OBJ) $(LIBZXID_A)
@@ -1757,8 +1765,15 @@ $(LIBZXID_A): $(ZX_OBJ) $(ZX_GEN_C:.c=.o) $(ZXID_LIB_OBJ) $(WSF_OBJ) $(OAUTH_OBJ
 endif
 endif
 
-libzxid.so.0.0: $(LIBZXID_A)
-	$(LD) $(OUTOPT)libzxid.so.0.0 $(SHARED_FLAGS) $^ $(SHARED_CLOSE) $(LIBS)
+#libzxid.so.0.0: $(LIBZXID_A)
+#	$(LD) $(OUTOPT)libzxid.so.0.0 $(SHARED_FLAGS) $^ $(SHARED_CLOSE) $(LIBS)
+
+$(SHLIB): $(ZX_OBJ) $(ZX_GEN_C:.c=.o) $(ZXID_LIB_OBJ) $(WSF_OBJ) $(OAUTH_OBJ) $(SMIME_LIB_OBJ)
+	$(LD) $(LDFLAGS) -Wl,-soname=$(SONAME) $(OUTOPT)libzxid.so.0.0 $(SHARED_FLAGS) $^ $(SHARED_CLOSE) $(LIBS)
+
+$(SHLIBLINK) $(SONAME): $(SHLIB)
+	ln -sf $< $@
+
 
 zxid.dll zxidimp.lib: $(LIBZXID_A)
 	$(LD) $(OUTOPT)zxid.dll $(SHARED_FLAGS) -Wl,--output-def,zxid.def,--out-implib,zxidimp.lib $^ $(SHARED_CLOSE) $(SO_LIBS)
@@ -2066,13 +2081,11 @@ dirs: dir
 
 install_nodep:
 	@$(ECHO) "===== Installing in $(PREFIX) (to change do make install PREFIX=/your/path)"
-	-mkdir -p $(PREFIX) $(PREFIX)/bin $(PREFIX)/lib $(PREFIX)/include/zxid $(PREFIX)/include/zx $(PREFIX)/doc
-	$(CP) zxmkdirs.sh zxcall zxumacall zxpasswd zxcot zxlogview zxbusd zxbustailf zxbuslist zxcached zxdecode zxencdectest zxcleanlogs.sh zximport-htpasswd.pl zximport-ldif.pl xml-pretty.pl diffy.pl smime send.pl xacml2ldif.pl mockpdp.pl env.cgi zxid-java.sh zxidatsel.pl zxidnewuser.pl zxidcot.pl zxiddash.pl zxidexplo.pl zxidhlo zxidhlo.pl zxidhlo.php zxidhlo.sh zxidhlo-java.sh zxidhlocgi.php zxidhlowsf zxidhrxmlwsc zxidhrxmlwsp zxididp zxidsimple zxidwsctool zxidwspcgi zxtest.pl mini_httpd_zxid $(PREFIX)/bin
-	$(CP) $(LIBZXID_A) libzxid.so* $(PREFIX)/lib
-	$(CP) libzxid.so.0.0 $(PREFIX)/lib
-	$(CP) *.h c/*.h $(PREFIX)/include/zxid
-	$(CP) zx.h $(PREFIX)/include/zx
-	$(CP) *.pd *.dia $(PREFIX)/doc
+	-mkdir -p "$(DESTDIR)$(PREFIX)" "$(DESTDIR)$(PREFIX)/bin" "$(DESTDIR)$(PREFIX)/lib" "$(DESTDIR)$(PREFIX)/include/zx" "$(DESTDIR)$(PREFIX)/share/doc"
+	$(CP) zxmkdirs.sh zxcall zxpasswd zxcot zxlogview zxbusd zxbustailf zxbuslist zxdecode zxencdectest zxcleanlogs.sh zximport-htpasswd.pl zximport-ldif.pl xml-pretty.pl diffy.pl smime send.pl xacml2ldif.pl mockpdp.pl env.cgi zxid-java.sh zxidatsel.pl zxidnewuser.pl zxidcot.pl zxiddash.pl zxidexplo.pl zxidhlo zxidhlo.pl zxidhlo.php zxidhlo.sh zxidhlo-java.sh zxidhlocgi.php zxidhlowsf zxidhrxmlwsc zxidhrxmlwsp zxididp zxidsimple zxidwsctool zxidwspcgi zxtest.pl zxid_httpd $(DESTDIR)$(PREFIX)/bin
+	$(CP) $(LIBZXID_A) libzxid.so* $(DESTDIR)$(PREFIX)/lib
+	$(CP) $(SHLIB) $(DESTDIR)$(PREFIX)/lib
+	$(CP) *.h $(DESTDIR)$(PREFIX)/include/zx
 	@$(ECHO) "You will need to copy zxidhlo binary where your web server can find it and"
 	@$(ECHO) "make sure your web server is configured to recognize zxidhlo as a CGI script."
 	@$(ECHO)
